@@ -6,7 +6,7 @@ Created on Fri Nov 15 15:16:13 2013
 """
 
 from config import *
-import warning
+import warnings
 import datetime
 import subprocess, threading
 import shutil
@@ -38,7 +38,7 @@ def replace_dir(dst):
                 
         
 
-class PySciQ(object):
+class QPyMan(object):
     def __init__(self):
         self.currExp = None
         self.process = None
@@ -60,7 +60,7 @@ class PySciQ(object):
         if name == '':
             allnames = os.listdir(QUEUE_PATH)
             for n in allnames:
-                if n != 'queue.json':
+                if n.split('.')[-1] == 'json' and n != 'queue.json':
                     name = n.split('.json')[0]
                     break
         else:
@@ -72,6 +72,7 @@ class PySciQ(object):
         with open(os.path.join(QUEUE_PATH , name + ".json"),'r') as infile:
             self.currExp = json.load(infile) 
             
+        self.currExp['filename'] = name + '.json'
         return self.currExp
 
     def run(self):
@@ -108,14 +109,15 @@ class PySciQ(object):
         thread.start()
         thread.join()
 
-    def main(self):
+    def main(self):        
         while self.nextExperimentFromQueue() != '':
-            if len(os.listdir(PROCESSING_PATH)) > 0:
-                e = Exception()
-                e.message = "Problem occurred, another experiment is being processed"
-                print e.message
-                raise e
-                sys.exit()
+#            if len(os.listdir(PROCESSING_PATH)) > 0:
+#                e = Exception()
+#                e.message = "Problem occurred, another experiment is being processed"
+#                print e.message
+#                raise e
+#                sys.exit()
+            print "Next task to compute: " + self.currExp['name']
             
             self.currExp['returncode'] = 1    
             self.currExp['stdout'] = ''
@@ -124,22 +126,29 @@ class PySciQ(object):
             
             dirname = os.path.join(PROCESSING_PATH, self.currExp['name'])
             os.mkdir(dirname)
-            src = os.path.join(QUEUE_PATH, self.currExp['name'] + '.json')
+            src = os.path.join(QUEUE_PATH, self.currExp['filename'])
             dst = os.path.join(PROCESSING_PATH, self.currExp['name'])
             try:
                 shutil.move(src, dst)
             except:
-                print "Warning: 
+                warnings.warn("File " + src + " could not be copied to " + dst, RuntimeWarning)
+                shutil.rmtree(dirname)
+                continue
+            
             if self.queue != None:
                 with open(os.path.join(QUEUE_PATH, 'queue.json'), 'w') as outfile:
                     json.dump(self.queue, outfile)
+                    
             start = str(datetime.datetime.now())
+            print "Starting at " + start
             self.run()
             finish = str(datetime.datetime.now())
+            print "Finished at " + finish
             
             self.currExp['returncode'] = self.process.returncode            
             if self.timeout:
                 self.currExp['returncode'] = -50
+                print "Timeout occurred"
             
             os.chdir(self.workDir)   
             src = os.path.join(PROCESSING_PATH, self.currExp['name'])
@@ -154,6 +163,7 @@ class PySciQ(object):
             with open(filename, 'w') as outfile:
                 json.dump(self.currExp, outfile)
             
+            print "Postprocessing..."
             ps = self.currExp['postscript']
             if ps != "":
                 subprocess.call(ps.split() + [os.path.abspath(dst), self.currExp['name']])
@@ -161,7 +171,7 @@ class PySciQ(object):
                 
         
 if __name__ == '__main__':
-    ps = PySciQ()
+    ps = QPyMan()
     ps.main()
 
         
