@@ -45,6 +45,8 @@ class QPyMan(object):
         self.queue = None
         self.workDir = os.getcwd()
         self.timeout = False
+        self.stdout = None
+        self.stderr = None
 
     def nextExperimentFromQueue(self):
         with open(os.path.join(QUEUE_PATH , "queue.json"),'r') as infile:
@@ -79,17 +81,14 @@ class QPyMan(object):
         def target():
             os.chdir(self.currExp['path'])
             try:
-                self.process = subprocess.Popen(self.currExp['command'].split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False, cwd=self.currExp['path'])  
+                self.process = subprocess.Popen(self.currExp['command'].split(), stdout=self.stdout, stderr=self.stderr, shell=False, cwd=self.currExp['path'])  
                 if self.currExp['timeout'] > 0:   
                     self.timer.start()
-                out, error = self.process.communicate()
-                
+                self.process.wait()
+
                 if self.currExp['timeout'] > 0:                    
                     self.timer.cancel()
-                    
-                self.currExp['stdout'] = out
-                self.currExp['stderr'] = error
-                
+                                    
 
             except Exception as e:
                 print e.message
@@ -109,6 +108,7 @@ class QPyMan(object):
         thread.start()
         thread.join()
 
+
     def main(self):        
         while self.nextExperimentFromQueue() != '':
 #            if len(os.listdir(PROCESSING_PATH)) > 0:
@@ -119,21 +119,23 @@ class QPyMan(object):
 #                sys.exit()
             print "Next task to compute: " + self.currExp['name']
             
-            self.currExp['returncode'] = 1    
-            self.currExp['stdout'] = ''
-            self.currExp['stderr'] = ''  
+            self.currExp['returncode'] = 1      
             self.timeout = False
             
             dirname = os.path.join(PROCESSING_PATH, self.currExp['name'])
             os.mkdir(dirname)
             src = os.path.join(QUEUE_PATH, self.currExp['filename'])
             dst = os.path.join(PROCESSING_PATH, self.currExp['name'])
+            
             try:
                 shutil.move(src, dst)
             except:
                 warnings.warn("File " + src + " could not be copied to " + dst, RuntimeWarning)
                 shutil.rmtree(dirname)
                 continue
+
+            self.stdout = open(os.path.join(dst, 'stdout'), 'a')
+            self.stderr = open(os.path.join(dst, 'stderr'), 'a')
             
             if self.queue != None:
                 with open(os.path.join(QUEUE_PATH, 'queue.json'), 'w') as outfile:
@@ -144,6 +146,9 @@ class QPyMan(object):
             self.run()
             finish = str(datetime.datetime.now())
             print "Finished at " + finish
+
+            self.stdout.close()
+            self.stderr.close()
             
             self.currExp['returncode'] = self.process.returncode            
             if self.timeout:
