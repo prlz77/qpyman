@@ -1,0 +1,15 @@
+ave
+build
+config.py
+config.pyc
+experiments.json
+finished
+newExperiment.py
+processing
+prova2.json
+prova.txt
+pysciq.py
+queue
+README
+sendmail.py
+sendmail.pyc
