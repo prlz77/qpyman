@@ -5,7 +5,7 @@ qpyman is a tool created to execute queues of jobs and doing all the postprocess
 ### What is this repository for? ###
 
 * Create computing jobs
-* Give them priorities
+* Give them priorities and timeouts
 * Create postprocessing tasks
 * Execute everything failure safe
 * Send reports by e-mail in real time
